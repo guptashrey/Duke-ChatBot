@@ -48,10 +48,8 @@ if st.session_state['generated']:
             message(st.session_state["past"][i], is_user=True, key=str(i) + '_user')
             message(st.session_state["generated"][i], key=str(i))
 
-clear_button = st.button("Clear Conversation", key="clear")
-
 # reset everything
-if clear_button:
+if st.button("Clear Conversation", key="clear"):
     st.session_state['generated'] = []
     st.session_state['past'] = []
     st.session_state['messages'] = [
