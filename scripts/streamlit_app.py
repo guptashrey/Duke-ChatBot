@@ -28,7 +28,8 @@ def generate_response(prompt):
     return response
 
 # container for chat history
-response_container = st.container()
+# response_container = st.container()
+response_container = st.empty()
 # container for text box
 container = st.container()
 
@@ -43,13 +44,14 @@ with container:
         st.session_state['generated'].append(output)
 
 if st.session_state['generated']:
-    with response_container:
+    with response_container.container():
         for i in range(len(st.session_state['generated'])):
             message(st.session_state["past"][i], is_user=True, key=str(i) + '_user')
             message(st.session_state["generated"][i], key=str(i))
 
 # reset everything
 if st.button("Clear Conversation", key="clear"):
+    response_container.empty()
     st.session_state['generated'] = []
     st.session_state['past'] = []
     st.session_state['messages'] = [
