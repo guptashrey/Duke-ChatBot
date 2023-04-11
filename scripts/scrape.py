@@ -68,7 +68,7 @@ def get_subpages(link):
         print("")
         dict_links = dict_links2
         # Save list in json file
-        a_file = open("fuqua_duke_edu.json", "w")
+        a_file = open("../data/pratt_duke_edu.json", "w")
         json.dump(dict_links, a_file)
         a_file.close()
 
