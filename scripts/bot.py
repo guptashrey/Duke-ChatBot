@@ -5,6 +5,7 @@ from starlette.responses import JSONResponse
 from haystack import Pipeline
 from haystack.nodes import FARMReader
 from haystack.nodes import DensePassageRetriever
+from haystack.document_stores import ElasticsearchDocumentStore
 
 import pandas as pd
 import os
@@ -33,8 +34,34 @@ def initialize():
         api_key (str): API key for authentication.
     '''
 
+    host = os.environ.get("ELASTICSEARCH_HOST", "localhost")
+    document_store = ElasticsearchDocumentStore(
+        host=host,
+        username="",
+        password="",
+        index="document",
+        similarity="dot_product",
+        embedding_dim=768,
+    )
+
+    retriever = DensePassageRetriever(
+        document_store=document_store,
+        query_embedding_model="facebook/dpr-question_encoder-single-nq-base",
+        passage_embedding_model="facebook/dpr-ctx_encoder-single-nq-base"
+    )
+
+    reader = FARMReader(model_name_or_path="deepset/roberta-base-squad2", use_gpu=True)
+
+    # initialize qna pipeline for reddit posts
+    querying_pipeline = Pipeline()
+    querying_pipeline.add_node(component=retriever, name="Retriever", inputs=["Query"])
+    querying_pipeline.add_node(component=reader, name="Reader", inputs=["Retriever"])
+
+    return querying_pipeline
+
 # initialize fastapi app
 app = FastAPI()
+querying_pipeline = initialize()
 
 # # define middleware for authentication
 # @app.middleware("http")
@@ -71,8 +98,14 @@ async def search(query: str):
         dict: Dictionary containing search results.
     '''
 
+    prediction = querying_pipeline.run(query=query, top_k_retriever=10, top_k_reader=5)
+    answers = pd.DataFrame([i.to_dict() for i in prediction["answers"]])
+    answers['document_ids'] = answers['document_ids'].apply(lambda x: x[0])
+    documents = pd.DataFrame([i.to_dict() for i in prediction["documents"]])
+    merge = pd.merge(documents, answers, left_on="id", right_on="document_ids", how="inner")
+
     openai.api_key = openai_api_key
-    info = "Duke University is a private research university in Durham, North Carolina. Founded by Methodists and Quakers in the present-day city of Trinity in 1838, the school moved to Durham in 1892. In 1924, tobacco and electric power industrialist James Buchanan Duke established The Duke Endowment and the institution changed its name to honor his deceased father, Washington Duke."
+    info = merge["content"].head(1).values[0]
     
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
