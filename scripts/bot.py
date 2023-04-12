@@ -98,7 +98,10 @@ async def search(query: str):
         dict: Dictionary containing search results.
     '''
 
-    prediction = querying_pipeline.run(query=query, top_k_retriever=10, top_k_reader=5)
+    prediction = querying_pipeline.run(query=query, params={
+        "Retriever": {"top_k": 10},
+        "Reader": {"top_k": 5}
+        })
     answers = pd.DataFrame([i.to_dict() for i in prediction["answers"]])
     answers['document_ids'] = answers['document_ids'].apply(lambda x: x[0])
     documents = pd.DataFrame([i.to_dict() for i in prediction["documents"]])
