@@ -13,22 +13,26 @@ def getdata(url):
 
 def get_links(website_link, website):
     html_data = getdata(website_link)
-    soup = BeautifulSoup(html_data, "html.parser")
-    list_links = []
-    for link in soup.find_all("a", href=True):
-        # Append to list if new link contains original link
-        if str(link["href"]).startswith((str(website))):
-            list_links.append(link["href"])
+    try:
+        soup = BeautifulSoup(html_data, "html.parser")
+        list_links = []
+        for link in soup.find_all("a", href=True):
+            # Append to list if new link contains original link
+            if str(link["href"]).startswith((str(website))):
+                list_links.append(link["href"])
 
-        # Include all href that do not start with website link but with "/"
-        if str(link["href"]).startswith("/"):
-            if link["href"] not in dict_href_links:
-                print(link["href"])
-                dict_href_links[link["href"]] = None
-                link_with_www = website + "/"+ link["href"][1:]
-                print("adjusted link =", link_with_www)
-                list_links.append(link_with_www)
-
+            # Include all href that do not start with website link but with "/"
+            if str(link["href"]).startswith("/"):
+                if link["href"] not in dict_href_links:
+                    print(link["href"])
+                    dict_href_links[link["href"]] = None
+                    link_with_www = website + "/"+ link["href"][1:]
+                    print("adjusted link =", link_with_www)
+                    list_links.append(link_with_www)
+    except:
+        list_links = []
+        pass
+    
     # Convert list of links to dictionary and define keys as the links and the values as "Not-checked"
     dict_links = dict.fromkeys(list_links, "Not-checked")
     return dict_links
@@ -68,11 +72,11 @@ def get_subpages(link):
         print("")
         dict_links = dict_links2
         # Save list in json file
-        a_file = open("../data/pratt_duke_edu.json", "w")
+        a_file = open("../data/ece_duke_edu.json", "w")
         json.dump(dict_links, a_file)
         a_file.close()
 
 
 if __name__ == "__main__":
     dict_href_links = {}
-    get_subpages("https://pratt.duke.edu")
+    get_subpages("https://ece.duke.edu")
