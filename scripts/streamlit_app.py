@@ -20,7 +20,7 @@ if 'messages' not in st.session_state:
 def generate_response(prompt):
     st.session_state['messages'].append({"role": "user", "content": prompt})
 
-    completion = requests.get('http://0.0.0.0:8060/answer/'+str(prompt)).json()
+    completion = requests.get('http://0.0.0.0:8060/chat/'+str(prompt)).json()
     response = completion["choices"][0]["text"]
     st.session_state['messages'].append({"role": "assistant", "content": response})
 
