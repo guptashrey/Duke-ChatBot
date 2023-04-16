@@ -119,3 +119,30 @@ async def chat(query: str):
     corrected_text = dict(completion.choices[0].message)["content"].replace("\n", "")
     chat_log.info(f"Question: {query} Answer: {corrected_text}")
     return {"id": str(uuid.uuid4()), "choices": [{"text": corrected_text}]}
+
+@app.get("/temp/{query}")
+async def temp(query: str):
+    '''
+    Chat endpoint for Pratt School of Engineering.
+
+    Args:
+        query (str): Query string.
+
+    Returns:
+        dict: Dictionary containing the answer
+    '''
+
+    prediction = querying_pipeline.run(query=query, params={
+        "Retriever": {"top_k": 10},
+        "Reader": {"top_k": 5}
+        })
+    
+    answers = pd.DataFrame([i.to_dict() for i in prediction["answers"]])
+    answers['document_ids'] = answers['document_ids'].apply(lambda x: x[0])
+    documents = pd.DataFrame([i.to_dict() for i in prediction["documents"]])
+    merge = pd.merge(documents, answers, left_on="id", right_on="document_ids", how="inner")
+    info = merge["content"].head(1).values[0]
+
+    corrected_text = info
+    chat_log.info(f"Question: {query} Answer: {corrected_text}")
+    return {"id": str(uuid.uuid4()), "choices": [{"text": corrected_text}]}
