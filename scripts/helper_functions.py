@@ -1,11 +1,5 @@
 # library imports
 from haystack.document_stores import ElasticsearchDocumentStore
-from haystack.nodes import PDFToTextConverter
-
-import pandas as pd
-
-from pathlib import Path
-from tqdm import tqdm
 
 def get_elasticsearch_document_store(host, username="", password="", index="document"):
     

@@ -5,44 +5,38 @@ from starlette.responses import JSONResponse
 from haystack import Pipeline
 from haystack.nodes import FARMReader
 from haystack.nodes import DensePassageRetriever
-from haystack.document_stores import ElasticsearchDocumentStore
+
+from helper_functions import get_elasticsearch_document_store
 
 import pandas as pd
 import os
 import logging
 import json
 import openai
+import uuid
 
-logging.basicConfig(format="%(levelname)s - %(name)s -  %(message)s", level=logging.WARNING)
-logging.getLogger("haystack").setLevel(logging.INFO)
-
-# load the api key from config.json
-config = json.load(open("../config.json"))
-api_key = config["api_key"]
-openai_api_key = config["openai_api_key"]
+logging.getLogger("haystack").setLevel(logging.ERROR)
+chat_log = logging.getLogger('chat')
+chat_log.setLevel(logging.INFO)
+handler = logging.FileHandler('chat.log')
+handler.setLevel(logging.INFO)
+chat_log.addHandler(handler)
 
 def initialize():
     '''
-    Function to initialize elasticsearch document store objects, retrievers, reader and qna pipelines.
+    Function to initialize elasticsearch document store, retrievers, reader and qna pipeline objects.
 
     Args:
         None
 
     Returns:
-        querying_pipeline_reddit (haystack.Pipeline): Qna pipeline for reddit posts.
-        querying_pipeline_research_papers (haystack.Pipeline): Qna pipeline for research papers.
+        querying_pipeline (haystack.Pipeline): Qna pipeline object.
         api_key (str): API key for authentication.
+        openai_api_key (str): OpenAI API key for authentication.
     '''
 
     host = os.environ.get("ELASTICSEARCH_HOST", "localhost")
-    document_store = ElasticsearchDocumentStore(
-        host=host,
-        username="",
-        password="",
-        index="document",
-        similarity="dot_product",
-        embedding_dim=768,
-    )
+    document_store = get_elasticsearch_document_store(host, "document")
 
     retriever = DensePassageRetriever(
         document_store=document_store,
@@ -52,16 +46,21 @@ def initialize():
 
     reader = FARMReader(model_name_or_path="deepset/roberta-base-squad2", use_gpu=True)
 
-    # initialize qna pipeline for reddit posts
+    # initialize qna pipeline
     querying_pipeline = Pipeline()
     querying_pipeline.add_node(component=retriever, name="Retriever", inputs=["Query"])
     querying_pipeline.add_node(component=reader, name="Reader", inputs=["Retriever"])
 
-    return querying_pipeline
+    # load the api key from config.json
+    config = json.load(open("../config.json"))
+    api_key = config["api_key"]
+    openai_api_key = config["openai_api_key"]
+
+    return querying_pipeline, api_key, openai_api_key
 
 # initialize fastapi app
 app = FastAPI()
-querying_pipeline = initialize()
+querying_pipeline, api_key, openai.api_key = initialize()
 
 # # define middleware for authentication
 # @app.middleware("http")
@@ -85,29 +84,28 @@ querying_pipeline = initialize()
 #         )
 #     return response
 
-# define search endpoint
-@app.get("/answer/{query}")
-async def search(query: str):
+# define chatbot endpoint
+@app.get("/chat/{query}")
+async def chat(query: str):
     '''
-    Search endpoint for searching reddit posts and research papers.
+    Chat endpoint for Pratt School of Engineering.
 
     Args:
         query (str): Query string.
 
     Returns:
-        dict: Dictionary containing search results.
+        dict: Dictionary containing the answer
     '''
 
     prediction = querying_pipeline.run(query=query, params={
         "Retriever": {"top_k": 10},
         "Reader": {"top_k": 5}
         })
+    
     answers = pd.DataFrame([i.to_dict() for i in prediction["answers"]])
     answers['document_ids'] = answers['document_ids'].apply(lambda x: x[0])
     documents = pd.DataFrame([i.to_dict() for i in prediction["documents"]])
     merge = pd.merge(documents, answers, left_on="id", right_on="document_ids", how="inner")
-
-    openai.api_key = openai_api_key
     info = merge["content"].head(1).values[0]
     
     completion = openai.ChatCompletion.create(
@@ -119,5 +117,5 @@ async def search(query: str):
     )
 
     corrected_text = dict(completion.choices[0].message)["content"].replace("\n", "")
-    print(corrected_text)
-    return {"id": "1", "choices": [{"text": corrected_text}]}
+    chat_log.info(f"Question: {query} Answer: {corrected_text}")
+    return {"id": str(uuid.uuid4()), "choices": [{"text": corrected_text}]}
