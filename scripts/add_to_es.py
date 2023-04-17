@@ -98,6 +98,11 @@ def main():
         temp["cleaned_text"] = temp["cleaned_text"].str.replace(text, "", regex=False)
     logger.info("Data cleaning completed")
     
+    print(len(temp))
+    temp["special_char_count"] = temp["cleaned_text"].apply(lambda x: x.count("�"))
+    temp = temp[temp["special_char_count"] == 0]
+    print(len(temp))
+    
     # create list of documents for elastic search
     list_of_docs = []
     for index, row in temp.iterrows():
