@@ -7,6 +7,7 @@ from haystack.nodes import FARMReader
 from haystack.nodes import DensePassageRetriever
 
 from helper_functions import get_elasticsearch_document_store
+from generative_qa import generative_qa
 
 import pandas as pd
 import os
@@ -56,11 +57,13 @@ def initialize():
     api_key = config["api_key"]
     openai_api_key = config["openai_api_key"]
 
-    return querying_pipeline, api_key, openai_api_key
+    generative_qa_obj = generative_qa()
+
+    return querying_pipeline, api_key, openai_api_key, generative_qa_obj
 
 # initialize fastapi app
 app = FastAPI()
-querying_pipeline, api_key, openai.api_key = initialize()
+querying_pipeline, api_key, openai.api_key, generative_qa_obj = initialize()
 
 # # define middleware for authentication
 # @app.middleware("http")
@@ -143,6 +146,7 @@ async def temp(query: str):
     merge = pd.merge(documents, answers, left_on="id", right_on="document_ids", how="inner")
     info = merge["content"].head(1).values[0]
 
-    corrected_text = info
+    corrected_text = generative_qa_obj.generate_answer(query, info)
+
     chat_log.info(f"Question: {query} Answer: {corrected_text}")
     return {"id": str(uuid.uuid4()), "choices": [{"text": corrected_text}]}
