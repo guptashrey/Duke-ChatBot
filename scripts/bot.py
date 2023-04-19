@@ -149,4 +149,4 @@ async def temp(query: str):
     corrected_text = generative_qa_obj.generate_answer(query, info)
 
     chat_log.info(f"Question: {query} Answer: {corrected_text}")
-    return {"id": str(uuid.uuid4()), "choices": [{"text": corrected_text}]}
+    return {"id": "1", "choices": [{"text": corrected_text}]}
