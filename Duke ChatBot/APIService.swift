@@ -11,7 +11,7 @@ import Combine
 
 class BotService {
     
-    let baseUrl = "http://52.203.49.131:8060/answer/"
+    let baseUrl = "http://52.203.49.131:8060/chat/"
     
     func askBot(query:String) {
         AF.request(self.baseUrl + query, method: .get, parameters: nil, encoding: URLEncoding.default, headers: nil, interceptor: nil).response {
@@ -29,19 +29,20 @@ class BotService {
 
 class APIService {
     
-    let baseUrl = "http://52.203.49.131:8060/answer/"
+    let baseUrl = "http://52.203.49.131:8060/chat/"
     
     func sendMessage(message:String) -> AnyPublisher<OpenAICompletionsResponse, Error> {
         
         return Future { [weak self] promise in
             guard let self = self else { return }
-            
-            AF.request(self.baseUrl + message, method: .get, parameters: nil, encoding: URLEncoding.default, headers: nil, interceptor: nil).responseDecodable(of: OpenAICompletionsResponse.self) { response in
+            let message1 = message.replacingOccurrences(of:" " , with: "%20")
+            AF.request(self.baseUrl + message1, method: .get, parameters: nil, encoding: URLEncoding.default, headers: nil, interceptor: nil).responseDecodable(of: OpenAICompletionsResponse.self) { response in
                 switch response.result {
                 case .success(let result):
                     print("success")
                     promise(.success(result))
                 case .failure(let Error):
+                    print(Error)
                     promise(.failure(Error))
                 }
             }

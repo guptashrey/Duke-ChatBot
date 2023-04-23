@@ -14,7 +14,6 @@ struct ContentView: View {
     @State var cancellables = Set<AnyCancellable>()
     
     let apiservice = APIService()
-    let botservice = BotService()
     
     var body: some View {
         VStack {
@@ -70,7 +69,6 @@ struct ContentView: View {
             chatMessages.append(apiMessage)
         }
         .store(in: &cancellables)
-        
         messageText = ""
     }
 }
