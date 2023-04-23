@@ -1,82 +1,71 @@
-import requests
+# library imports
 from bs4 import BeautifulSoup
-from tqdm import tqdm
+import requests
+import html2text
 import json
+from tqdm import tqdm
+import os
+import argparse
 
-def getdata(url):
-    # add header to prevent being blocked (403 error) by wordpress websites
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
-    r = requests.get(url, headers=headers)
-    return r.text
+def scrape_subdomain(json_file_name, directory):
+    """
+    This function scrapes all subpages of a website and saves them as text files.
 
-
-def get_links(website_link, website):
-    html_data = getdata(website_link)
-    try:
-        soup = BeautifulSoup(html_data, "html.parser")
-        list_links = []
-        for link in soup.find_all("a", href=True):
-            # Append to list if new link contains original link
-            if str(link["href"]).startswith((str(website))):
-                list_links.append(link["href"])
-
-            # Include all href that do not start with website link but with "/"
-            if str(link["href"]).startswith("/"):
-                if link["href"] not in dict_href_links:
-                    print(link["href"])
-                    dict_href_links[link["href"]] = None
-                    link_with_www = website + "/"+ link["href"][1:]
-                    print("adjusted link =", link_with_www)
-                    list_links.append(link_with_www)
-    except:
-        list_links = []
-        pass
+    Args:
+        json_file_name (str): Path to json file containing all subpages of a website.
+        directory (str): Path to directory where the text files should be saved.
     
-    # Convert list of links to dictionary and define keys as the links and the values as "Not-checked"
-    dict_links = dict.fromkeys(list_links, "Not-checked")
-    return dict_links
+    Returns:
+        None
+    """
 
+    # get the urls of all subpages
+    url_list = [i for i in json.load(open(json_file_name)).keys()]    
 
-def get_subpage_links(l, website):
-    for link in tqdm(l):
-        # If not crawled through this page start crawling and get links
-        if l[link] == "Not-checked":
-            dict_links_subpages = get_links(link, website)
-            # Change the dictionary value of the link to "Checked"
-            l[link] = "Checked"
-        else:
-            # Create an empty dictionary in case every link is checked
-            dict_links_subpages = {}
-        # Add new dictionary to old dictionary
-        l = {**dict_links_subpages, **l}
-    return l
+    # initialize html2text
+    h = html2text.HTML2Text()
+    h.wrap_list_items = True
+    h.ignore_images = True
+    h.ignore_links = True
+    h.ignore_tables = True
 
-def get_subpages(link):
-    # add websuite WITH slash on end
-    website = link
-    # create dictionary of website
-    dict_links = {website:"Not-checked"}
+    # loop through all urls
+    for i in tqdm(url_list):
 
-    counter, counter2 = None, 0
-    while counter != 0:
-        counter2 += 1
-        dict_links2 = get_subpage_links(dict_links, website)
+        # get html data
+        session = requests.session()
+        req = session.get(i)
+        doc = BeautifulSoup(req.content)
         
-        counter = sum(value == "Not-checked" for value in dict_links2.values())
+        # get the file name
+        file_name = directory + "/" + i.replace('https://', '') + '.txt'
+        print(file_name)
+        
+        # create directory if it doesn't exist
+        try:
+            os.makedirs(os.path.dirname(file_name), exist_ok=True)
+        except:
+            pass
 
-        print("")
-        print("THIS IS LOOP ITERATION NUMBER", counter2)
-        print("LENGTH OF DICTIONARY WITH LINKS =", len(dict_links2))
-        print("NUMBER OF 'Not-checked' LINKS = ", counter)
-        print("")
-        dict_links = dict_links2
-        # Save list in json file
-        a_file = open("../data/ece_duke_edu.json", "w")
-        json.dump(dict_links, a_file)
-        a_file.close()
-
+        # write the file
+        try:
+            with open(file_name, 'w') as f:
+                f.write(h.handle(str(doc)))
+        except:
+            pass
 
 if __name__ == "__main__":
-    dict_href_links = {}
-    get_subpages("https://ece.duke.edu")
+    # create parser
+    parser = argparse.ArgumentParser(
+                    prog='scrape',
+                    description='This script scrapes all subpages of a website and saves them as text files.')
+    parser.add_argument('json_file_name', type=str, help='Path to json file containing all subpages of a website.')
+    parser.add_argument('directory', type=str, help='Path to directory where the text files should be saved.')
+
+    # parse arguments
+    args = parser.parse_args()
+    json_file_name = args.json_file_name
+    directory = args.directory
+
+    # call function to start scraping
+    scrape_subdomain(json_file_name, directory)

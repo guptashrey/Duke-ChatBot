@@ -7,6 +7,7 @@ import os
 import texthero as hero
 import logging
 import glob
+import argparse
 
 logging.getLogger("haystack").setLevel(logging.ERROR)
 logger = logging.getLogger("Add Data to ES")
@@ -14,9 +15,38 @@ logger.setLevel(logging.INFO)
 
 from helper_functions import get_elasticsearch_document_store
 
-def main():
+def initialize():
+    """
+    Initialize ElasticsearchDocumentStore and DensePassageRetriever for use in the pipeline.
+
+    Args:
+        None
+    
+    Return:
+        document_store: ElasticsearchDocumentStore
+        retriever: DensePassageRetriever
+    """
+
+    # get the host where Elasticsearch is running, default to localhost
+    host = os.environ.get("ELASTICSEARCH_HOST", "localhost")
+
+    # get ElasticsearchDocumentStore
+    document_store = get_elasticsearch_document_store(host, "document1")
+    logger.info("Created ElasticsearchDocumentStore")
+
+    # initialize retriever model for creating embeddings
+    retriever = DensePassageRetriever(
+        document_store=document_store,
+        query_embedding_model="facebook/dpr-question_encoder-single-nq-base",
+        passage_embedding_model="facebook/dpr-ctx_encoder-single-nq-base"
+    )
+    logger.info("Retriever model initialized")
+
+    return document_store, retriever
+
+def index_in_es(data_directory):
     '''
-    Process Reddit posts and index them in Elasticsearch.
+    Process the webpages text data and index them in Elasticsearch.
 
     Args:
         None
@@ -25,16 +55,8 @@ def main():
         None
     '''
 
-    # get the host where Elasticsearch is running, default to localhost
-    host = os.environ.get("ELASTICSEARCH_HOST", "localhost")
-
-    # get ElasticsearchDocumentStore
-    document_store = get_elasticsearch_document_store(host, "document")
-    logger.info("Created ElasticsearchDocumentStore")
-
-
     # load list of scraped websites
-    sites = glob.glob("../data/*/", recursive=False)
+    sites = glob.glob(data_directory + "/*/", recursive=False)
     sites.sort()
 
     # create list of files to read across all websites
@@ -129,17 +151,20 @@ def main():
     document_store.write_documents(preprocessed_docs)
     logger.info("Documents written to document store")
 
-    # initialize retriever model for creating embeddings
-    retriever = DensePassageRetriever(
-        document_store=document_store,
-        query_embedding_model="facebook/dpr-question_encoder-single-nq-base",
-        passage_embedding_model="facebook/dpr-ctx_encoder-single-nq-base"
-    )
-    logger.info("Retriever model initialized")
-
     # update embeddings of documents in the document store using the retriever model
     document_store.update_embeddings(retriever)
     logger.info("Embeddings updated")
 
 if __name__ == "__main__":
-    main()
+    # create parser
+    parser = argparse.ArgumentParser(
+                    prog='index_in_es',
+                    description='This script indexes the text of all the scraped webpages into ElasticSearch')
+    parser.add_argument('data_directory', type=str, help='Directory where the scraped webpages are stored')
+
+    # parse arguments
+    args = parser.parse_args()
+    data_directory = args.data_directory
+
+    document_store, retriever = initialize()
+    index_in_es(data_directory)
