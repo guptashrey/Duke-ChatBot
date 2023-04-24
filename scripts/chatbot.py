@@ -5,6 +5,7 @@ from starlette.responses import JSONResponse
 from haystack import Pipeline
 from haystack.nodes import FARMReader
 from haystack.nodes import DensePassageRetriever
+from haystack.nodes import BM25Retriever
 
 from helper_functions import get_elasticsearch_document_store
 from t5_qa import t5_qa
@@ -56,7 +57,8 @@ def qna_pipeline_initialize():
         None
 
     Returns:
-        querying_pipeline (haystack.Pipeline): Qna pipeline object.
+        ndl_querying_pipeline (haystack.Pipeline): Non Deep Learning based QnA pipeline object.
+        dl_querying_pipeline (haystack.Pipeline): Deep Learning based QnA pipeline object.
     '''
 
     # get elasticsearch host from environment variables
@@ -65,8 +67,15 @@ def qna_pipeline_initialize():
     # initialize elasticsearch document store
     document_store = get_elasticsearch_document_store(host, "document")
 
+    # initialize BM25 retriever
+    bm25_retriever = BM25Retriever(document_store=document_store)
+
+    # initialize non deep learning based qna pipeline
+    ndl_querying_pipeline = Pipeline()
+    ndl_querying_pipeline.add_node(component=bm25_retriever, name="Retriever", inputs=["Query"])
+
     # initialize DPR retriever
-    retriever = DensePassageRetriever(
+    dpr_retriever = DensePassageRetriever(
         document_store=document_store,
         query_embedding_model="facebook/dpr-question_encoder-single-nq-base",
         passage_embedding_model="facebook/dpr-ctx_encoder-single-nq-base"
@@ -75,17 +84,17 @@ def qna_pipeline_initialize():
     # initialize FARM reader
     reader = FARMReader(model_name_or_path="deepset/roberta-base-squad2", use_gpu=True)
 
-    # initialize qna pipeline
-    querying_pipeline = Pipeline()
-    querying_pipeline.add_node(component=retriever, name="Retriever", inputs=["Query"])
-    querying_pipeline.add_node(component=reader, name="Reader", inputs=["Retriever"])
+    # initialize deep learning based qna pipeline
+    dl_querying_pipeline = Pipeline()
+    dl_querying_pipeline.add_node(component=dpr_retriever, name="Retriever", inputs=["Query"])
+    dl_querying_pipeline.add_node(component=reader, name="Reader", inputs=["Retriever"])
 
-    return querying_pipeline
+    return ndl_querying_pipeline, dl_querying_pipeline
 
 # initialize fastapi app
 app = FastAPI()
 
-querying_pipeline = qna_pipeline_initialize()
+ndl_querying_pipeline, dl_querying_pipeline = qna_pipeline_initialize()
 chatgpt_qa_obj, t5_qa_obj, api_key = app_initialize()
 
 # define middleware for authentication
@@ -113,6 +122,34 @@ async def authentication(request: Request, call_next):
     #     )
     return response
 
+@app.get("/chat_v0/{question}")
+async def chat_v0(question: str):
+    '''
+    Chat endpoint based non-deep learning approach.
+
+    Args:
+        question (str): question string.
+
+    Returns:
+        dict: Dictionary containing the answer
+    '''
+
+    # get predictions from qna pipeline
+    prediction = ndl_querying_pipeline.run(query=question, params={
+        "Retriever": {"top_k": 10}
+        })
+    answers = pd.DataFrame([i.to_dict() for i in prediction["documents"]])
+    answers.sort_values(by="score", ascending=False, inplace=True)
+    context = answers["content"].head(1).values[0]
+
+    # use generative_qa to correct the answer based on question and context
+    corrected_answer = t5_qa_obj.generate_answer(question, context)
+
+    # log the question and answer
+    chat_log.info(f"Question: {question} Answer: {corrected_answer}")
+    
+    return {"id": str(uuid.uuid4()), "choices": [{"text": corrected_answer}]}
+
 @app.get("/chat_v1/{question}")
 async def chat_v1(question: str):
     '''
@@ -126,7 +163,7 @@ async def chat_v1(question: str):
     '''
 
     # get predictions from qna pipeline
-    prediction = querying_pipeline.run(query=question, params={
+    prediction = dl_querying_pipeline.run(query=question, params={
         "Retriever": {"top_k": 10},
         "Reader": {"top_k": 5}
         })
@@ -160,7 +197,7 @@ async def chat_v2(question: str):
         dict: Dictionary containing the answer
     '''
 
-    prediction = querying_pipeline.run(query=question, params={
+    prediction = dl_querying_pipeline.run(query=question, params={
         "Retriever": {"top_k": 10},
         "Reader": {"top_k": 5}
         })

@@ -20,7 +20,14 @@ class chatgpt_qa():
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "user",
-                "content": f"Can you answer the given question based on the provided context? Question: '{question}' Context: '{context}'"}
+                "content": f"""
+                Answer the question using the given context. If you are not sure about the answer, answer with "I don't have enough context to answer this question.".
+
+                Context: {context}
+
+                Question: {question}
+                """
+                }
             ]
         )
         return dict(completion.choices[0].message)["content"].replace("\n", "")
