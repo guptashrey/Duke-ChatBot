@@ -41,7 +41,7 @@ def run_UI():
     def generate_response(prompt):
         st.session_state['messages'].append({"role": "user", "content": prompt})
 
-        completion = requests.get('http://0.0.0.0:8060/chat_v2/'+str(prompt), headers={"api_key": api_key}).json()
+        completion = requests.get('http://0.0.0.0:8060/chat_v2/'+str(prompt), headers={"api-key": api_key}).json()
         response = completion["choices"][0]["text"]
         st.session_state['messages'].append({"role": "assistant", "content": response})
         return response
