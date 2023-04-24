@@ -20,7 +20,7 @@ def run_UI():
 
     col_1, col_2 = st.columns([10,90])
     with col_1:
-        st.image("logo.png", use_column_width="auto")
+        st.image("../assets/logo.png", use_column_width="auto")
     with col_2:
         st.title("Duke ChatBot")
         st.markdown("##### A chatbot that can answer your questions about Pratt School of Engineering!")
