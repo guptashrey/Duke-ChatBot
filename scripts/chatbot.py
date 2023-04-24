@@ -110,16 +110,14 @@ async def authentication(request: Request, call_next):
     Returns:
         JSONResponse: JSON response object.
     '''
-    
-    response = await call_next(request)
 
-    # if request.headers.get('api-key') == api_key:
-    #     response = await call_next(request)
+    if request.headers.get('api-key') == api_key:
+        response = await call_next(request)
 
-    # else:
-    #     response = JSONResponse(
-    #         content={"message": "unauthorized access"}, status_code=401
-    #     )
+    else:
+        response = JSONResponse(
+            content={"message": "unauthorized access"}, status_code=401
+        )
     return response
 
 @app.get("/chat_v0/{question}")
