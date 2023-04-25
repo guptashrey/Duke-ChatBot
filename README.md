@@ -272,7 +272,14 @@ The project structure is as follows:
 ├── requirements.txt                            <- requirements file to document dependencies
 ```
 
-&nbsp;
+## Duke ChatBot (Streamlit):
+* Refer to the [README.md](https://github.com/guptashrey/Duke-ChatBot/blob/st/README.md) at this link to run the Streamlit-based web application or access it [here](http://dukebot.guptashrey.com).
+* You can find the code for the Streamlit web-app [here](https://github.com/guptashrey/Duke-ChatBot/tree/st).
+
+## Duke ChatBot (iOS App):
+* Refer to the [README.md](https://github.com/guptashrey/Duke-ChatBot/blob/ios/README.md) at this link to run the Duke ChatBot iOS app.
+* You can find the code for the app [here](https://github.com/guptashrey/Duke-ChatBot/tree/ios).
+
 ## References
 
 - [Farm-Haystack](https://haystack.deepset.ai)
