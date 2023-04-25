@@ -18,14 +18,19 @@ def run_UI():
     # setting page title and header
     st.set_page_config(page_title="Duke ChatBot", page_icon=":robot_face:", layout="wide")
 
-    col_1, col_2 = st.columns([10,90])
+    col_1, col_2, col_3 = st.columns([10,70, 20])
     with col_1:
         st.image("../assets/logo.png", use_column_width="auto")
     with col_2:
         st.title("Duke ChatBot")
         st.markdown("##### A chatbot that can answer your questions about Pratt School of Engineering!")
+    with col_3:
+        option = st.selectbox(
+        'ChatBot Version Selection:',
+        ('Chatbot+', 'Chatbot'))
 
     st.divider()
+
 
     # initialise session state variables
     if 'generated' not in st.session_state:
@@ -41,7 +46,12 @@ def run_UI():
     def generate_response(prompt):
         st.session_state['messages'].append({"role": "user", "content": prompt})
 
-        completion = requests.get('http://0.0.0.0:8060/chat_v2/'+str(prompt), headers={"api-key": api_key}).json()
+        if option == 'Chatbot':
+            completion = requests.get('http://0.0.0.0:8060/chat_v1/'+str(prompt), headers={"api-key": api_key}).json()
+
+        else:
+            completion = requests.get('http://0.0.0.0:8060/chat_v2/'+str(prompt), headers={"api-key": api_key}).json()
+        
         response = completion["choices"][0]["text"]
         st.session_state['messages'].append({"role": "assistant", "content": response})
         return response
