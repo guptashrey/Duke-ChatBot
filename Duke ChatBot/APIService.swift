@@ -29,14 +29,17 @@ class BotService {
 
 class APIService {
     
-    let baseUrl = "http://52.203.49.131:8060/chat/"
+    let baseUrl = "http://52.203.49.131:8060/chat_v2/"
+    let header: HTTPHeaders = [
+                "api-key": Constants.openAIAPIKey
+            ]
     
     func sendMessage(message:String) -> AnyPublisher<OpenAICompletionsResponse, Error> {
         
         return Future { [weak self] promise in
             guard let self = self else { return }
             let message1 = message.replacingOccurrences(of:" " , with: "%20")
-            AF.request(self.baseUrl + message1, method: .get, parameters: nil, encoding: URLEncoding.default, headers: nil, interceptor: nil).responseDecodable(of: OpenAICompletionsResponse.self) { response in
+            AF.request(self.baseUrl + message1, method: .get, parameters: nil, encoding: URLEncoding.default, headers: header, interceptor: nil).responseDecodable(of: OpenAICompletionsResponse.self) { response in
                 switch response.result {
                 case .success(let result):
                     print("success")
