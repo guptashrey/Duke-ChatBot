@@ -17,6 +17,7 @@ struct ContentView: View {
     
     var body: some View {
         VStack {
+            Label("**Duke ChatBot**", image: "test")
             ScrollView {
                 LazyVStack {
                     ForEach(chatMessages, id:\.id) {message in
